@@ -5,7 +5,7 @@ import { dbService } from '../services/dbService';
 import { aiService } from '../services/geminiService';
 import { ArrowLeft, Trash2, Download, Upload, Sparkles, Bot, Maximize, ExternalLink, ChevronLeft, ChevronRight, Star } from './Icons';
 
-// Global PDF.js settings
+// Global PDF.js and PDF-Lib declarations
 declare const pdfjsLib: any;
 declare const PDFLib: any;
 
@@ -22,6 +22,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
     const [aiResult, setAiResult] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Initialize PDF.js worker
+    useEffect(() => {
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        }
+    }, []);
 
     // Keyboard navigation
     useEffect(() => {
@@ -46,6 +53,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
+        if (typeof pdfjsLib === 'undefined') {
+            alert("PDF engine is still loading. Please try again in a moment.");
+            return;
+        }
+
         setLoading('Processing PDFs...');
         try {
             const newPages: PDFPage[] = [];
@@ -56,14 +68,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                 
                 await dbService.saveFile({ id: pdfId, projectId: project.id, data: buffer });
                 
-                const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+                const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+                const pdf = await loadingTask.promise;
+                
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.0 });
+                    const viewport = page.getViewport({ scale: 1.5 }); // High res for main preview
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d')!;
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
+                    
                     await page.render({ canvasContext: context, viewport }).promise;
                     
                     newPages.push({
@@ -82,8 +97,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
             setPages(updatedPages);
             onSave({ ...project, pages: updatedPages, pageCount: updatedPages.length });
         } catch (err) {
-            console.error(err);
-            alert("Failed to process PDF file.");
+            console.error("PDF Processing Error:", err);
+            alert("Failed to process PDF file. Make sure it's a valid document.");
         } finally {
             setLoading(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -111,6 +126,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
             return;
         }
 
+        if (typeof PDFLib === 'undefined') {
+            alert("Export library is still loading...");
+            return;
+        }
+
         setLoading(onlyStarred ? 'Generating Starred PDF...' : 'Merging PDF...');
         try {
             const mergedPdf = await PDFLib.PDFDocument.create();
@@ -124,8 +144,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                         loadedFiles[p.pdfId] = await PDFLib.PDFDocument.load(fileRecord.data);
                     }
                 }
-                const [copiedPage] = await mergedPdf.copyPages(loadedFiles[p.pdfId], [p.pageIndex]);
-                mergedPdf.addPage(copiedPage);
+                if (loadedFiles[p.pdfId]) {
+                    const [copiedPage] = await mergedPdf.copyPages(loadedFiles[p.pdfId], [p.pageIndex]);
+                    mergedPdf.addPage(copiedPage);
+                }
             }
 
             const pdfBytes = await mergedPdf.save();
@@ -135,8 +157,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
             a.href = url;
             a.download = onlyStarred ? `${project.name}_Starred_Collection.pdf` : `${project.name}_Full_Merged.pdf`;
             a.click();
+            
+            // Cleanup
+            setTimeout(() => URL.revokeObjectURL(url), 100);
         } catch (err) {
-            console.error(err);
+            console.error("Export Error:", err);
             alert("Export failed.");
         } finally {
             setLoading(null);
