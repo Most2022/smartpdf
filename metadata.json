@@ -1,0 +1,5 @@
+{
+  "name": "SmartPDF Notebook",
+  "description": "A high-performance PDF management workspace for students to organize, merge, reorder, and analyze documents with Gemini AI assistance.",
+  "requestFramePermissions": []
+}
