@@ -26,7 +26,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
     // Initialize PDF.js worker
     useEffect(() => {
         if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+            // Using a specific CDN version to match the script in index.html (3.11.174)
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
         }
     }, []);
 
@@ -73,7 +74,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                 
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.5 }); // High res for main preview
+                    const viewport = page.getViewport({ scale: 1.5 });
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d')!;
                     canvas.height = viewport.height;
@@ -158,7 +159,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
             a.download = onlyStarred ? `${project.name}_Starred_Collection.pdf` : `${project.name}_Full_Merged.pdf`;
             a.click();
             
-            // Cleanup
             setTimeout(() => URL.revokeObjectURL(url), 100);
         } catch (err) {
             console.error("Export Error:", err);
@@ -218,7 +218,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
 
     return (
         <div className="h-screen flex flex-col bg-slate-50 overflow-hidden relative">
-            {/* Toolbar */}
             {!isFullscreen && (
                 <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-30 shadow-sm">
                     <div className="flex items-center gap-6">
@@ -278,7 +277,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
             )}
 
             <main className={`flex-1 flex overflow-hidden ${isFullscreen ? 'bg-slate-950' : ''}`}>
-                {/* Thumbnails Sidebar */}
                 {!isFullscreen && (
                     <aside className="w-72 bg-white border-r border-slate-200 flex flex-col z-20">
                         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
@@ -324,9 +322,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                     </aside>
                 )}
 
-                {/* Main Preview */}
                 <div className="flex-1 relative flex flex-col overflow-hidden">
-                    {/* Controls Overlay */}
                     <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
                         {pages[selectedIndex] && (
                             <>
@@ -356,7 +352,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                         )}
                     </div>
 
-                    {/* Horizontal Navigation Buttons */}
                     {pages.length > 1 && (
                         <>
                             <button 
@@ -374,7 +369,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                         </>
                     )}
 
-                    {/* Page Viewer */}
                     <div className="flex-1 overflow-auto flex flex-col items-center justify-center p-4">
                         {pages[selectedIndex] ? (
                             <div 
@@ -395,7 +389,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                                     />
                                 </div>
                                 
-                                {/* Bottom Pagination Indicator */}
                                 <div className={`mt-4 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 ${isFullscreen ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
                                     Page {selectedIndex + 1} of {pages.length}
                                     {pages[selectedIndex].isStarred && <Star fill="currentColor" />}
@@ -408,7 +401,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ project, onBack, onSave })
                         )}
                     </div>
 
-                    {/* AI Feedback Panel Overlay */}
                     {aiResult && !isFullscreen && (
                         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 max-w-3xl w-[90%] bg-white rounded-2xl shadow-2xl border-t-4 border-purple-500 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 z-50">
                             <div className="flex items-center justify-between p-4 bg-purple-50/50 border-b border-purple-100">
